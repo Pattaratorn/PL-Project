@@ -1,0 +1,187 @@
+import re
+
+"""create scanner"""
+
+dic = {}
+token_list = []
+
+def s_ident(scanner, token): 
+    addToken(token, "identifier")
+    return token
+def s_arithmetic_op(scanner, token): 
+    addToken(token, "arithmetic operator")
+    return "arithmetic_op %s" % token
+def s_relational_op(scanner, token): 
+    addToken(token, "relational operator")
+    return "relational_op %s" % token
+def s_assignment_op(scanner, token): 
+    addToken(token, "assignment operator")
+    return "assignment_op %s" % token
+def s_open_round(scanner, token): 
+    addToken(token, "open round bracket")
+    return "open_round"
+def s_close_round(scanner, token): 
+    addToken(token, "close round bracket")
+    return "close_round"
+def s_open_curly(scanner, token): 
+    addToken(token, "open curly bracket")
+    return "open_curly"
+def s_close_curly(scanner, token): 
+    addToken(token, "close curly bracket")
+    return "close_curly"
+def s_reserve_for(scanner, token):
+    addToken(token, "reserveword for")
+    return "reserveword for"
+def s_reserve_if(scanner, token):
+    addToken(token, "reserveword if")
+    return "reserveword if"
+def s_reserve_else(scanner, token):
+    addToken(token, "reserveword else")
+    return "reserveword else"
+def s_int(scanner, token): 
+    addToken(token, "integer")
+    return int(token)
+def s_int_array(scanner, token):
+    addToken(token, "integer from array")
+    return "integer from %s" % token
+def s_semicolon(scanner, token): 
+    addToken(token, "semicolon")
+    return "semicolon"
+def s_fail(scanner, token): 
+    dic[token] = "fail" 
+    return "fail"
+    
+def addToken(token, type):
+    dic[token] = type
+    token_list.append(token)
+    
+
+scanner = re.Scanner([
+    (r"\(", s_open_round),
+    (r"\)", s_close_round),
+    (r"\{", s_open_curly),
+    (r"\}", s_close_curly),
+    (r"(?<![a-zA-Z0-9])(for)(?![a-zA-Z0-9])", s_reserve_for),
+    (r"(?<![a-zA-Z0-9])(if)(?![a-zA-Z0-9])", s_reserve_if),
+    (r"(?<![a-zA-Z0-9])(else)(?![a-zA-Z0-9])", s_reserve_else),
+    (r"([a-zA-Z])+(\[[0-9]\])+", s_int_array),
+    (r"[a-zA-Z_]\w*", s_ident),
+    (r"\d+", s_int),
+    
+    (r"\+|\*", s_arithmetic_op),
+    (r"\<|>", s_relational_op),
+    (r"=", s_assignment_op),
+    (r";", s_semicolon),
+    (r"\s+", None),
+    ])
+    
+s = "for ( x = 1 ; x < 10 ; x = x + 1 ) { if ( x > a[2][3] ) { x = ( ( 5 + a ) * 5 ) + 5 } else { x = 0 }"
+
+print(scanner.scan(s))
+
+class color:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'
+   
+   """df = pd.DataFrame(dic,index=[0,1],None)
+   df.columns = ['Token']
+   print(df)"""
+   
+print(color.BOLD + 'Token' + color.END + '\t\t\t' + color.BOLD + 'Type' + color.END)
+for token, type in dic.items():
+    print('{}\t\t\t{}'.format(token, type))
+    
+    """change token name to match terminal/non-terminal name in grammar"""
+token_stream = []
+for t in token_list:
+    if(dic[t] == "identifier"):
+        token_stream.append("var")
+    elif(dic[t] == "reserveword for"):
+        token_stream.append("for")
+    elif(dic[t] == "reserveword if"):
+        token_stream.append("if")
+    elif(dic[t] == "reserveword else"):
+        token_stream.append("else")
+    elif(dic[t] == "integer"):
+        token_stream.append("num")
+    elif(dic[t] == "integer from array"):
+        token_stream.append("num")
+    else:
+        token_stream.append(t)
+        
+print(" ".join(token_stream))
+
+
+"""create parse table using 2-dimensional dictionary"""
+
+parse_table = {"sts" : {"var" : ["st","sts"], 
+                        "if" : ["st", "sts"], 
+                        "}" : [""], 
+                        "for" : ["st","sts"], 
+                        "$" : [""]},
+               "st" : {"var" : ["asst"], 
+                       "if" : ["ifst"], 
+                       "for" : ["forst"]},
+               "asst" : {"var" : ["var","=","aexp"]},
+               "aexp" : {"var" : ["term","aexp'"], 
+                         "(" : ["term","aexp'"], 
+                         "num" : ["term","aexp'"]},
+               "aexp'" : {"var" : [""], 
+                          "+" : ["+","term","aexp'"], 
+                          "(" : [""],
+                          ")" : [""],
+                          "if" : [""],
+                          ">" : [""],
+                          "<" : [""],
+                          "}" : [""],
+                          "for" : [""],
+                          ";" : [""],
+                          "$" : [""]},
+               "term" : {"var" : ["factor","term'"], 
+                         "(" : ["factor","term'"], 
+                         "num" : ["factor","term'"]},
+               "term'" : {"var" : [""], 
+                          "+" : [""], 
+                          "*" : ["*","factor","term'"], 
+                          "(" : [""],")" : [""],
+                          "if" : [""],
+                          ">" : [""],
+                          "<" : [""],
+                          "}" : [""],
+                          "for" : [""],
+                          ";" : [""],
+                          "$" : [""]},
+               "factor" : {"var" : ["id"], 
+                           "(" : ["(","aexp",")"], 
+                           "num" : ["id"]},
+               "id" : {"var" : ["var"], 
+                       "num" : ["num"]},
+               "ifst" : {"if" : ["if","(","rexp",")","block","else","block"]},
+               "rexp" : {"var" : ["aexp","roo","aexp","rexp'"], 
+                         "(" : ["aexp","roo","aexp","rexp'"], 
+                         "num" : ["aexp","roo","aexp","rexp'"]},
+               "rexp'" : {"(" : ["(","rexp",")"], 
+                          ")" : [""], 
+                          ">" : ["rop","aexp","rexp'"], 
+                          "<" : ["rop","aexp","rexp'"], 
+                          ";" : [""]},
+               "rop" : {">" : [">"], 
+                        "<" : ["<"]},
+               "block" : {"{" : ["{","sts","}"]},
+               "forst" : {"for" : ["for","(","st",";","rexp",";","st",")","block"]}}
+                                 
+
+"""for key1, key2 in parse_table.items():
+    if(key1=="sts"):
+        for k,v in key2.items():
+            if(k=="var"):
+                print(v)"""
+     
